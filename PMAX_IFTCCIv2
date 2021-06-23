@@ -1,0 +1,128 @@
+//@version=4
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © KivancOzbilgic
+//developer: @KivancOzbilgic
+//author: @KivancOzbilgic
+//editor: @Safderun
+
+//PMax
+study("IFT CCI on Pmax","PMaxCCI v2", overlay=true, format=format.price, precision=2, resolution="")
+src = input(hl2, title="Source")
+Periods = input(title="ATR Length", type=input.integer, defval=5)
+Multiplier = input(title="ATR Multiplier", type=input.float, step=0.1, defval=3.0)
+mav = input(title="Moving Average Type", defval="VAR", options=["SMA", "EMA", "WMA", "TMA", "VAR", "WWMA", "ZLEMA", "TSF"])
+length =input(8, "Moving Average Length", minval=1)
+changeATR= true
+Normalize= false
+atr2 = sma(tr, Periods)
+atr= changeATR ? atr(Periods) : atr2
+valpha=2/(length+1)
+vud1=src>src[1] ? src-src[1] : 0
+vdd1=src<src[1] ? src[1]-src : 0
+vUD=sum(vud1,9)
+vDD=sum(vdd1,9)
+vCMO=nz((vUD-vDD)/(vUD+vDD))
+VAR=0.0
+VAR:=nz(valpha*abs(vCMO)*src)+(1-valpha*abs(vCMO))*nz(VAR[1])
+wwalpha = 1/ length
+WWMA = 0.0
+WWMA := wwalpha*src + (1-wwalpha)*nz(WWMA[1])
+zxLag = length/2==round(length/2) ? length/2 : (length - 1) / 2
+zxEMAData = (src + (src - src[zxLag]))
+ZLEMA = ema(zxEMAData, length)
+lrc = linreg(src, length, 0)
+lrc1 = linreg(src,length,1)
+lrs = (lrc-lrc1)
+TSF = linreg(src, length, 0)+lrs
+getMA(src, length) =>
+    ma = 0.0
+    if mav == "SMA"
+        ma := sma(src, length)
+        ma
+
+    if mav == "EMA"
+        ma := ema(src, length)
+        ma
+
+    if mav == "WMA"
+        ma := wma(src, length)
+        ma
+
+    if mav == "TMA"
+        ma := sma(sma(src, ceil(length / 2)), floor(length / 2) + 1)
+        ma
+
+    if mav == "VAR"
+        ma := VAR
+        ma
+
+    if mav == "WWMA"
+        ma := WWMA
+        ma
+
+    if mav == "ZLEMA"
+        ma := ZLEMA
+        ma
+
+    if mav == "TSF"
+        ma := TSF
+        ma
+    ma
+    
+MAvg=getMA(src, length)
+longStop = Normalize ? MAvg - Multiplier*atr/close : MAvg - Multiplier*atr
+longStopPrev = nz(longStop[1], longStop)
+longStop := MAvg > longStopPrev ? max(longStop, longStopPrev) : longStop
+shortStop = Normalize ? MAvg + Multiplier*atr/close : MAvg + Multiplier*atr
+shortStopPrev = nz(shortStop[1], shortStop)
+shortStop := MAvg < shortStopPrev ? min(shortStop, shortStopPrev) : shortStop
+dir = 1
+dir := nz(dir[1], dir)
+dir := dir == -1 and MAvg > shortStopPrev ? 1 : dir == 1 and MAvg < longStopPrev ? -1 : dir
+PMax = dir==1 ? longStop: shortStop
+pALL=plot(PMax, color=color.red, linewidth=2, title="PMax", transp=0)
+buySignalk = crossover(MAvg, PMax)
+sellSignallk = crossunder(MAvg, PMax)
+buySignalc = crossover(src, PMax)
+sellSignallc = crossunder(src, PMax)
+plotshape(buySignalk and showsignalsk ? PMax*0.995 : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=color.green, textcolor=color.white, transp=0)
+plotshape(sellSignallk and showsignalsk ? PMax*1.005 : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=color.red, textcolor=color.white, transp=0)
+plotshape(buySignalc and showsignalsc ? PMax*0.995 : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=#0F18BF, textcolor=color.white, transp=0)
+plotshape(sellSignallc and showsignalsc ? PMax*1.005 : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=#0F18BF, textcolor=color.white, transp=0)
+mPlot = plot(ohlc4, title="", style=plot.style_circles, linewidth=0,display=display.none)
+
+
+//Inverse Fisher Transform on CCI
+wmalength=input(9, title="Smoothing Length")
+ccilength=input(21, "CCI Length")
+v11=0.1*(cci(close, ccilength)/4)
+v21=wma(v11, wmalength)
+INV1=(exp(2*v21)-1)/(exp(2*v21)+1)
+
+barcolor(INV1>0.5 ? color.green:na)
+barcolor(INV1<-0.5 ? color.red:na)
+barcolor(INV1<0.5 and INV1>-0.5 ? color.black:na)
+
+
+//Golden & Death Cross
+
+ma1= 50
+ma2= 200
+ma3= input(100, minval=1, title="Moving Average")
+
+select1 = sma(src, ma1)
+select2 = sma(src, ma2)
+
+plot( sma(src, ma1), color=color.blue, linewidth=2, title="MA 50")
+plot( sma(src, ma2), color=color.green, linewidth=2, title="MA 200")
+plot( sma(src, ma3), color=color.purple, linewidth=2, title="MA")
+
+
+
+//golden_cross() => select1 > select2
+//death_cross() => select1 < select2
+
+//Golden() => golden_cross() and death_cross()[1]
+//bgcolor(Golden() ? color.blue : Death() ? color.red : na,transp=0, title="Golden & Death Cross Background Color")
+
+//plotshape(Death(), color=color.white, style=shape.xcross, text="Death", location=location.top)
