@@ -8,10 +8,10 @@
 //PMax
 study("IFT CCI on Pmax","PMaxCCI v2", overlay=true, format=format.price, precision=2, resolution="")
 src = input(hl2, title="Source")
-Periods = input(title="ATR Length", type=input.integer, defval=5)
+Periods = input(title="ATR Length", type=input.integer, defval=21)
 Multiplier = input(title="ATR Multiplier", type=input.float, step=0.1, defval=3.0)
 mav = input(title="Moving Average Type", defval="VAR", options=["SMA", "EMA", "WMA", "TMA", "VAR", "WWMA", "ZLEMA", "TSF"])
-length =input(8, "Moving Average Length", minval=1)
+length =input(5, "Moving Average Length", minval=1)
 changeATR= true
 Normalize= false
 atr2 = sma(tr, Periods)
